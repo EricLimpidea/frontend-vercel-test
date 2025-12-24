@@ -2,21 +2,87 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Test Vercel + Render</title>
+  <title>Test Vercel + Render (réaliste)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Arial; padding: 24px; }
+    .card { padding: 16px; border: 1px solid #ddd; border-radius: 12px; margin: 12px 0; }
+    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
 </head>
 <body>
-  <h1>Frontend Vercel</h1>
-  <p id="result">Chargement...</p>
+  <h1>Frontend (Vercel) → Backend (Render)</h1>
+
+  <div class="card">
+    <strong>1) Health check</strong>
+    <pre id="health">Chargement...</pre>
+  </div>
+
+  <div class="card">
+    <strong>2) Hello JSON</strong>
+    <pre id="hello">Chargement...</pre>
+  </div>
+
+  <div class="card">
+    <strong>3) Streaming SSE (type IA)</strong><br/><br/>
+    <button id="start">Démarrer streaming</button>
+    <button id="stop">Stop</button>
+    <pre id="stream">(vide)</pre>
+  </div>
 
   <script>
-    fetch("https://backend-render-test-kgnv.onrender.com")
-      .then(res => res.text())
-      .then(text => {
-        document.getElementById("result").textContent = text;
-      })
-      .catch(err => {
-        document.getElementById("result").textContent = "Erreur backend";
+    // ✅ Mets ici ton URL Render
+    const API_BASE = "https://TON-BACKEND.onrender.com";
+
+    async function loadJson(path, elId) {
+      const el = document.getElementById(elId);
+      try {
+        const res = await fetch(API_BASE + path);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const json = await res.json();
+        el.textContent = JSON.stringify(json, null, 2);
+      } catch (e) {
+        el.textContent = "Erreur: " + e.message;
+      }
+    }
+
+    loadJson("/api/health", "health");
+    loadJson("/api/hello", "hello");
+
+    // Streaming SSE
+    let es = null;
+
+    document.getElementById("start").addEventListener("click", () => {
+      const out = document.getElementById("stream");
+      out.textContent = ""; // reset
+
+      if (es) es.close();
+      es = new EventSource(API_BASE + "/api/stream");
+
+      es.addEventListener("token", (evt) => {
+        const data = JSON.parse(evt.data);
+        out.textContent += data.token;
       });
+
+      es.addEventListener("done", () => {
+        out.textContent += "\n\n[done]";
+        es.close();
+        es = null;
+      });
+
+      es.onerror = () => {
+        out.textContent += "\n\n[stream error]";
+        if (es) es.close();
+        es = null;
+      };
+    });
+
+    document.getElementById("stop").addEventListener("click", () => {
+      if (es) es.close();
+      es = null;
+      document.getElementById("stream").textContent += "\n\n[stopped]";
+    });
   </script>
 </body>
 </html>
