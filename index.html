@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test Vercel + Render</title>
+</head>
+<body>
+  <h1>Frontend Vercel</h1>
+  <p id="result">Chargement...</p>
+
+  <script>
+    fetch("https://backend-render-test-kgnv.onrender.com")
+      .then(res => res.text())
+      .then(text => {
+        document.getElementById("result").textContent = text;
+      })
+      .catch(err => {
+        document.getElementById("result").textContent = "Erreur backend";
+      });
+  </script>
+</body>
+</html>
