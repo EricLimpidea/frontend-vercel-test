@@ -32,16 +32,45 @@
   </div>
 
   <script>
-    // ✅ Mets ici TON URL Render exacte
-    const API_BASE = "https://backend-render-test-kgnv.onrender.com";
+    // Variable pour stocker l'URL de l'API depuis la variable d'environnement Vercel
+    let API_BASE = null;
   
-    // Affiche l'URL dans la page pour être sûr que Vercel a bien la bonne version
-    document.body.insertAdjacentHTML(
-      "beforeend",
-      `<p><strong>API_BASE:</strong> <code>${API_BASE}</code></p>`
-    );
+    // Charge la configuration depuis l'API Vercel
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        if (data.apiBase) {
+          API_BASE = data.apiBase;
+          // Affiche l'URL dans la page pour être sûr que Vercel a bien la bonne version
+          document.body.insertAdjacentHTML(
+            "beforeend",
+            `<p><strong>API_BASE:</strong> <code>${API_BASE}</code></p>`
+          );
+          // Charge les données une fois la config disponible
+          loadJson("/api/health", "health");
+          loadJson("/api/hello", "hello");
+        } else {
+          document.body.insertAdjacentHTML(
+            "beforeend",
+            `<p style="color: red;"><strong>Erreur:</strong> Variable d'environnement API_BASE_URL non définie</p>`
+          );
+        }
+      } catch (e) {
+        console.error("Erreur lors du chargement de la config", e);
+        document.body.insertAdjacentHTML(
+          "beforeend",
+          `<p style="color: red;"><strong>Erreur:</strong> Impossible de charger la configuration: ${e.message}</p>`
+        );
+      }
+    }
   
     async function loadJson(path, elId) {
+      if (!API_BASE) {
+        document.getElementById(elId).textContent = "En attente de la configuration...";
+        return;
+      }
+      
       const el = document.getElementById(elId);
       const url = API_BASE + path;
   
@@ -69,13 +98,18 @@
       }
     }
   
-    loadJson("/api/health", "health");
-    loadJson("/api/hello", "hello");
+    // Charge la configuration au démarrage
+    loadConfig();
   
     // SSE
     let es = null;
   
     document.getElementById("start").addEventListener("click", () => {
+      if (!API_BASE) {
+        alert("Configuration non chargée. Veuillez attendre...");
+        return;
+      }
+      
       const out = document.getElementById("stream");
       out.textContent = "";
   
