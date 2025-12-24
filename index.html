@@ -32,57 +32,83 @@
   </div>
 
   <script>
-    // ✅ Mets ici ton URL Render
-    const API_BASE = "https://TON-BACKEND.onrender.com";
-
+    // ✅ Mets ici TON URL Render exacte
+    const API_BASE = "https://xxxx.onrender.com";
+  
+    // Affiche l'URL dans la page pour être sûr que Vercel a bien la bonne version
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<p><strong>API_BASE:</strong> <code>${API_BASE}</code></p>`
+    );
+  
     async function loadJson(path, elId) {
       const el = document.getElementById(elId);
+      const url = API_BASE + path;
+  
       try {
-        const res = await fetch(API_BASE + path);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const json = await res.json();
-        el.textContent = JSON.stringify(json, null, 2);
+        const res = await fetch(url, { cache: "no-store" });
+        // Même si HTTP 404/500, fetch réussit → on le verra ici
+        const text = await res.text();
+  
+        if (!res.ok) {
+          el.textContent = `HTTP ${res.status} sur ${url}\n\n${text}`;
+          return;
+        }
+  
+        // On essaie de parser en JSON
+        try {
+          const json = JSON.parse(text);
+          el.textContent = JSON.stringify(json, null, 2);
+        } catch {
+          el.textContent = `Réponse non-JSON sur ${url}\n\n${text}`;
+        }
       } catch (e) {
-        el.textContent = "Erreur: " + e.message;
+        // Ici: DNS/CORS/Network/SSL → typiquement "Load failed"
+        console.error("FETCH FAILED", url, e);
+        el.textContent = `Fetch failed sur ${url}\n\n${e?.message || e}`;
       }
     }
-
+  
     loadJson("/api/health", "health");
     loadJson("/api/hello", "hello");
-
-    // Streaming SSE
+  
+    // SSE
     let es = null;
-
+  
     document.getElementById("start").addEventListener("click", () => {
       const out = document.getElementById("stream");
-      out.textContent = ""; // reset
-
+      out.textContent = "";
+  
       if (es) es.close();
-      es = new EventSource(API_BASE + "/api/stream");
-
+      const url = API_BASE + "/api/stream";
+      out.textContent = `[connecting] ${url}\n`;
+  
+      es = new EventSource(url);
+  
       es.addEventListener("token", (evt) => {
         const data = JSON.parse(evt.data);
         out.textContent += data.token;
       });
-
+  
       es.addEventListener("done", () => {
         out.textContent += "\n\n[done]";
         es.close();
         es = null;
       });
-
-      es.onerror = () => {
-        out.textContent += "\n\n[stream error]";
+  
+      es.onerror = (err) => {
+        console.error("SSE ERROR", url, err);
+        out.textContent += "\n\n[sse error]";
         if (es) es.close();
         es = null;
       };
     });
-
+  
     document.getElementById("stop").addEventListener("click", () => {
       if (es) es.close();
       es = null;
       document.getElementById("stream").textContent += "\n\n[stopped]";
     });
   </script>
-</body>
+  </body>
 </html>
